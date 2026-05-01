@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+import { AppError } from "@/lib/errors/app-error";
+import { logger } from "@/lib/logger/logger";
+import { productsService } from "@/modules/products/products.service";
+import {
+  CreateProductSchema,
+  ProductQuerySchema,
+} from "@/modules/products/products.types";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = req.nextUrl;
+    const query = ProductQuerySchema.parse({
+      category: searchParams.get("category") ?? undefined,
+      page: searchParams.get("page") ?? undefined,
+      limit: searchParams.get("limit") ?? undefined,
+    });
+    const result = await productsService.listProducts(query);
+    return NextResponse.json(result);
+  } catch (err) {
+    return handleError(err);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body: unknown = await req.json();
+    const input = CreateProductSchema.parse(body);
+    const product = await productsService.createProduct(input);
+    return NextResponse.json({ product }, { status: 201 });
+  } catch (err) {
+    return handleError(err);
+  }
+}
+
+function handleError(err: unknown) {
+  if (err instanceof AppError) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.statusCode }
+    );
+  }
+  if (err instanceof ZodError) {
+    return NextResponse.json(
+      { error: "Validation error", details: err.flatten() },
+      { status: 400 }
+    );
+  }
+  logger.error({ err }, "Unhandled error in products route");
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+}
