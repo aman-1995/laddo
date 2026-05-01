@@ -7,17 +7,80 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum InventoryStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+enum InventoryChangeReason {
+  SALE
+  RESTOCK
+  ADJUSTMENT
+  RETURN
+  RESERVED
+  RESERVATION_RELEASED
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
 model User {
-  id            String     @id @default(uuid())
-  email         String     @unique
+  id            String    @id @default(uuid())
+  email         String    @unique
   name          String?
   emailVerified DateTime?
   image         String?
   phone         String?
-  createdAt     DateTime   @default(now())
-  orders        Order[]
-  cartItems     CartItem[]
-  accounts      Account[]
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  addresses      Address[]
+  cartItems      CartItem[]
+  orders         Order[]
+  productReviews ProductReview[]
+  vendorReviews  VendorReview[]
+  comments       Comment[]
+  vendor         Vendor?
 
   @@map("users")
 }
@@ -35,7 +98,8 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -50,77 +114,409 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+// ─────────────────────────────────────────────
+// ADDRESSES
+// ─────────────────────────────────────────────
+
+model Address {
+  id        String   @id @default(uuid())
+  userId    String
+  label     String?  // "Home", "Work", "Other"
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("India")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("addresses")
+}
+
+// ─────────────────────────────────────────────
+// VENDOR
+// ─────────────────────────────────────────────
+
+model Vendor {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  shopName    String
+  description String?      @db.Text
+  logo        String?
+  phone       String?
+  email       String?
+  status      VendorStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user       User           @relation(fields: [userId], references: [id])
+  products   Product[]
+  inventory  Inventory[]
+  reviews    VendorReview[]
+
+  @@map("vendors")
+}
+
+// ─────────────────────────────────────────────
+// PRODUCT CATALOGUE
+// ─────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?
+  sortOrder   Int      @default(0)
+  parentId    String?
+  createdAt   DateTime @default(now())
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@map("categories")
+}
+
 model Product {
-  id         String      @id @default(uuid())
-  name       String
-  price      Int
-  category   String
-  inventory  Int         @default(0)
-  createdAt  DateTime    @default(now())
-  orderItems OrderItem[]
-  cartItems  CartItem[]
+  id          String   @id @default(uuid())
+  vendorId    String?  // null = first-party Laddo product
+  categoryId  String
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor   Vendor?          @relation(fields: [vendorId], references: [id])
+  category Category         @relation(fields: [categoryId], references: [id])
+  variants ProductVariant[]
+  images   ProductImage[]
+  recipe   Recipe?
+  reviews  ProductReview[]
 
   @@map("products")
 }
 
-enum OrderStatus {
-  CREATED
-  CONFIRMED
-  SHIPPED
-  DELIVERED
-  CANCELLED
+// Each row is one sellable SKU (e.g. "500g box", "1kg kesar sugar-free")
+// New variants are added by admin without schema changes.
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  name      String   // display name, e.g. "500g Classic Box"
+  sku       String   @unique
+  price     Int      // in paise
+  mrp       Int      // in paise
+  weight    Int?     // grams
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product    Product            @relation(fields: [productId], references: [id])
+  attributes VariantAttribute[]
+  images     ProductImage[]
+  inventory  Inventory?
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("product_variants")
 }
 
+// Open-ended key/value pairs — admin can define any attribute without migrations.
+// e.g. { key: "flavor", value: "kesar" }, { key: "diet", value: "sugar-free" }
+model VariantAttribute {
+  id        String @id @default(uuid())
+  variantId String
+  key       String
+  value     String
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, key])
+  @@map("variant_attributes")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String?
+  variantId String?
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product  Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@map("product_images")
+}
+
+// ─────────────────────────────────────────────
+// RECIPE
+// ─────────────────────────────────────────────
+
+model Recipe {
+  id          String   @id @default(uuid())
+  productId   String   @unique
+  title       String
+  description String?  @db.Text
+  prepTime    Int?     // minutes
+  cookTime    Int?     // minutes
+  servings    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product Product       @relation(fields: [productId], references: [id])
+  steps   RecipeStep[]
+  videos  RecipeVideo[]
+  images  RecipeImage[]
+
+  @@map("recipes")
+}
+
+model RecipeStep {
+  id          String  @id @default(uuid())
+  recipeId    String
+  stepNumber  Int
+  instruction String  @db.Text
+  imageUrl    String?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, stepNumber])
+  @@map("recipe_steps")
+}
+
+model RecipeVideo {
+  id        String   @id @default(uuid())
+  recipeId  String
+  title     String?
+  url       String   // embed URL (YouTube / Vimeo / etc.)
+  thumbnail String?
+  duration  Int?     // seconds
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  recipe   Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@map("recipe_videos")
+}
+
+model RecipeImage {
+  id        String   @id @default(uuid())
+  recipeId  String
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  recipe   Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@map("recipe_images")
+}
+
+// ─────────────────────────────────────────────
+// REVIEWS
+// ─────────────────────────────────────────────
+
+model ProductReview {
+  id                 String   @id @default(uuid())
+  productId          String
+  userId             String
+  rating             Int      // 1–5
+  title              String?
+  body               String?  @db.Text
+  isVerifiedPurchase Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+  @@map("product_reviews")
+}
+
+model VendorReview {
+  id        String   @id @default(uuid())
+  vendorId  String
+  userId    String
+  rating    Int      // 1–5
+  body      String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendor   Vendor    @relation(fields: [vendorId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  comments Comment[]
+
+  @@unique([vendorId, userId])
+  @@map("vendor_reviews")
+}
+
+// ─────────────────────────────────────────────
+// COMMENTS  (polymorphic via nullable FKs)
+// Targets: RecipeVideo · RecipeImage · ProductImage · VendorReview
+// Supports threaded replies via parentId self-relation.
+// ─────────────────────────────────────────────
+
+model Comment {
+  id             String   @id @default(uuid())
+  userId         String
+  body           String   @db.Text
+  recipeVideoId  String?
+  recipeImageId  String?
+  productImageId String?
+  vendorReviewId String?
+  parentId       String?  // null = top-level, set = reply
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  recipeVideo  RecipeVideo?  @relation(fields: [recipeVideoId], references: [id], onDelete: Cascade)
+  recipeImage  RecipeImage?  @relation(fields: [recipeImageId], references: [id], onDelete: Cascade)
+  productImage ProductImage? @relation(fields: [productImageId], references: [id], onDelete: Cascade)
+  vendorReview VendorReview? @relation(fields: [vendorReviewId], references: [id], onDelete: Cascade)
+  parent       Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies      Comment[]     @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────
+
+model Inventory {
+  id                String          @id @default(uuid())
+  variantId         String          @unique
+  vendorId          String?
+  quantity          Int             @default(0)
+  reserved          Int             @default(0)  // held for pending orders
+  lowStockThreshold Int             @default(10)
+  status            InventoryStatus @default(OUT_OF_STOCK)
+  updatedAt         DateTime        @updatedAt
+
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+  vendor  Vendor?        @relation(fields: [vendorId], references: [id])
+  logs    InventoryLog[]
+
+  @@map("inventory")
+}
+
+// Append-only audit trail for every stock movement.
+model InventoryLog {
+  id          String                @id @default(uuid())
+  inventoryId String
+  delta       Int                   // +ve = added, -ve = removed
+  reason      InventoryChangeReason
+  orderId     String?               // set for SALE / RETURN movements
+  note        String?
+  createdAt   DateTime              @default(now())
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@map("inventory_logs")
+}
+
+// ─────────────────────────────────────────────
+// CART
+// ─────────────────────────────────────────────
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  variantId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([userId, variantId])
+  @@map("cart_items")
+}
+
+// ─────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────
+
 model Order {
-  id          String      @id @default(uuid())
-  userId      String
-  status      OrderStatus @default(CREATED)
-  totalAmount Int
-  createdAt   DateTime    @default(now())
-  user        User        @relation(fields: [userId], references: [id])
-  items       OrderItem[]
-  payment     Payment?
+  id             String      @id @default(uuid())
+  userId         String
+  addressId      String
+  status         OrderStatus @default(PLACED)
+  subtotal       Int         // paise — sum of items before discount/shipping
+  discountAmount Int         @default(0)
+  shippingAmount Int         @default(0)
+  totalAmount    Int         // paise — what customer actually pays
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  user          User                 @relation(fields: [userId], references: [id])
+  address       Address              @relation(fields: [addressId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  payment       Payment?
 
   @@map("orders")
 }
 
+// Price is locked at order time — variant price changes don't affect past orders.
 model OrderItem {
-  id        String  @id @default(uuid())
+  id        String @id @default(uuid())
   orderId   String
-  productId String
+  variantId String
   quantity  Int
-  unitPrice Int
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  unitPrice Int    // paise, snapshot at purchase time
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
 
   @@map("order_items")
 }
 
-model CartItem {
-  id        String  @id @default(uuid())
-  userId    String
-  productId String
-  quantity  Int
-  user      User    @relation(fields: [userId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+// Every status transition is recorded with a timestamp and optional note.
+model OrderStatusHistory {
+  id        String      @id @default(uuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
 
-  @@unique([userId, productId])
-  @@map("cart_items")
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("order_status_history")
 }
 
-enum PaymentStatus {
-  PENDING
-  SUCCESS
-  FAILED
-}
+// ─────────────────────────────────────────────
+// PAYMENTS
+// ─────────────────────────────────────────────
 
 model Payment {
   id                String        @id @default(uuid())
   orderId           String        @unique
   razorpayOrderId   String
   razorpayPaymentId String?
+  amount            Int           // paise
   status            PaymentStatus @default(PENDING)
-  order             Order         @relation(fields: [orderId], references: [id])
+  paidAt            DateTime?
+  refundedAt        DateTime?
+  createdAt         DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
 
   @@map("payments")
 }

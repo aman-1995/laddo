@@ -12,30 +12,28 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
-    "next": "15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@prisma/client": "^5.22.0",
-    "next-auth": "5.0.0-beta.25",
     "@auth/prisma-adapter": "^2.7.2",
-    "bullmq": "^5.13.0",
-    "ioredis": "^5.4.1",
+    "@prisma/client": "^5.22.0",
+    "next": "15.1.0",
+    "next-auth": "5.0.0-beta.25",
     "pino": "^9.4.0",
     "pino-pretty": "^11.2.2",
     "razorpay": "^2.9.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "15.1.0",
+    "postcss": "^8",
     "prisma": "^5.22.0",
-    "tsx": "^4.19.1"
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5"
   }
 }
