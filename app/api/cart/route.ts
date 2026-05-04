@@ -32,14 +32,11 @@ export async function DELETE(req: NextRequest) {
   try {
     const user = await authService.requireSession();
     const { searchParams } = req.nextUrl;
-    const productId = searchParams.get("productId");
-    if (!productId) {
-      return NextResponse.json(
-        { error: "productId query param required" },
-        { status: 400 }
-      );
+    const variantId = searchParams.get("variantId");
+    if (!variantId) {
+      return NextResponse.json({ error: "variantId query param required" }, { status: 400 });
     }
-    await cartService.removeItem(user.id, productId);
+    await cartService.removeItem(user.id, variantId);
     return NextResponse.json({ success: true });
   } catch (err) {
     return handleError(err);

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/projects/laddo worktree remove --force /c/projects/laddo/.claude/worktrees/elated-lovelace-b3dc8e)",
+      "Bash(git -C /c/projects/laddo worktree remove --force /c/projects/laddo/.claude/worktrees/silly-meitner-45443b)",
+      "PowerShell(git -C C:\\\\projects\\\\laddo worktree remove --force C:\\\\projects\\\\laddo\\\\.claude\\\\worktrees\\\\elated-lovelace-b3dc8e)",
+      "PowerShell(git -C C:\\\\projects\\\\laddo worktree remove --force C:\\\\projects\\\\laddo\\\\.claude\\\\worktrees\\\\silly-meitner-45443b)",
+      "Bash(git -C /c/projects/laddo worktree list)",
+      "Bash(git -C /c/projects/laddo branch)",
+      "Bash(git -C /c/projects/laddo worktree prune --verbose)",
+      "Bash(git -C /c/projects/laddo log --oneline -3)"
+    ]
+  }
+}

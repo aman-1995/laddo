@@ -20,7 +20,7 @@ export const paymentsService = {
       receipt: order.id,
     });
 
-    const payment = await paymentsRepo.create(order.id, rzpOrder.id);
+    const payment = await paymentsRepo.create(order.id, rzpOrder.id, order.totalAmount);
     logger.info(
       { event: PAYMENT_EVENTS.INITIATED, orderId: order.id },
       "Payment initiated"

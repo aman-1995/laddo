@@ -2,10 +2,11 @@ import { z } from "zod";
 import { OrderStatus } from "@prisma/client";
 
 export const CreateOrderSchema = z.object({
+  addressId: z.string().uuid(),
   items: z
     .array(
       z.object({
-        productId: z.string().uuid(),
+        variantId: z.string().uuid(),
         quantity: z.number().int().positive(),
       })
     )

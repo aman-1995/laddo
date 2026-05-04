@@ -10,9 +10,9 @@ export const paymentsRepo = {
     return prisma.payment.findFirst({ where: { razorpayOrderId } });
   },
 
-  async create(orderId: string, razorpayOrderId: string) {
+  async create(orderId: string, razorpayOrderId: string, amount: number) {
     return prisma.payment.create({
-      data: { orderId, razorpayOrderId },
+      data: { orderId, razorpayOrderId, amount },
     });
   },
 

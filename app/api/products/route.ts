@@ -3,10 +3,7 @@ import { ZodError } from "zod";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logger/logger";
 import { productsService } from "@/modules/products/products.service";
-import {
-  CreateProductSchema,
-  ProductQuerySchema,
-} from "@/modules/products/products.types";
+import { ProductQuerySchema } from "@/modules/products/products.types";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,19 +13,8 @@ export async function GET(req: NextRequest) {
       page: searchParams.get("page") ?? undefined,
       limit: searchParams.get("limit") ?? undefined,
     });
-    const result = await productsService.listProducts(query);
+    const result = await productsService.listStorefront(query);
     return NextResponse.json(result);
-  } catch (err) {
-    return handleError(err);
-  }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const body: unknown = await req.json();
-    const input = CreateProductSchema.parse(body);
-    const product = await productsService.createProduct(input);
-    return NextResponse.json({ product }, { status: 201 });
   } catch (err) {
     return handleError(err);
   }

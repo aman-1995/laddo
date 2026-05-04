@@ -4,27 +4,33 @@ export const cartRepo = {
   async findByUserId(userId: string) {
     return prisma.cartItem.findMany({
       where: { userId },
-      include: { product: true },
+      include: {
+        variant: {
+          include: {
+            product: { include: { images: { where: { isPrimary: true }, take: 1 } } },
+          },
+        },
+      },
     });
   },
 
-  async findItem(userId: string, productId: string) {
+  async findItem(userId: string, variantId: string) {
     return prisma.cartItem.findUnique({
-      where: { userId_productId: { userId, productId } },
+      where: { userId_variantId: { userId, variantId } },
     });
   },
 
-  async upsertItem(userId: string, productId: string, quantity: number) {
+  async upsertItem(userId: string, variantId: string, quantity: number) {
     return prisma.cartItem.upsert({
-      where: { userId_productId: { userId, productId } },
+      where: { userId_variantId: { userId, variantId } },
       update: { quantity },
-      create: { userId, productId, quantity },
+      create: { userId, variantId, quantity },
     });
   },
 
-  async deleteItem(userId: string, productId: string) {
+  async deleteItem(userId: string, variantId: string) {
     return prisma.cartItem.delete({
-      where: { userId_productId: { userId, productId } },
+      where: { userId_variantId: { userId, variantId } },
     });
   },
 

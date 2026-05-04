@@ -5,7 +5,7 @@ export const ordersRepo = {
   async findById(id: string) {
     return prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: true } }, payment: true },
+      include: { items: { include: { variant: { include: { product: true } } } }, payment: true },
     });
   },
 
@@ -19,18 +19,19 @@ export const ordersRepo = {
 
   async create(
     userId: string,
+    addressId: string,
+    subtotal: number,
     totalAmount: number,
-    items: Array<{
-      productId: string;
-      quantity: number;
-      unitPrice: number;
-    }>
+    items: Array<{ variantId: string; quantity: number; unitPrice: number }>
   ) {
     return prisma.order.create({
       data: {
         userId,
+        addressId,
+        subtotal,
         totalAmount,
         items: { create: items },
+        statusHistory: { create: { status: "PLACED" } },
       },
       include: { items: true },
     });

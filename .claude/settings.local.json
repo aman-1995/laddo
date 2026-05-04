@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git worktree *)",
+      "PowerShell(git -C \"C:\\\\projects\\\\laddo\" worktree prune)",
+      "PowerShell(git -C \"C:\\\\projects\\\\laddo\" branch -d claude/elegant-montalcini-5270e6)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/api/categories)"
+    ]
+  }
+}
